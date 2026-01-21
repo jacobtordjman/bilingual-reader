@@ -283,6 +283,74 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             text-align: center;
         }}
         
+        /* Visible Navigation Buttons (Desktop) */
+        .nav-buttons {{
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 50;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }}
+        
+        .nav-buttons:hover {{
+            opacity: 1;
+        }}
+        
+        /* Hide nav buttons when overlay is visible */
+        .overlay.visible ~ .nav-buttons {{
+            opacity: 0;
+            pointer-events: none;
+        }}
+        
+        .nav-btn {{
+            padding: 14px 32px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }}
+        
+        .nav-btn:hover {{
+            background: rgba(102, 126, 234, 0.95);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        }}
+        
+        .nav-btn:active {{
+            transform: translateY(0);
+        }}
+        
+        .nav-btn:disabled {{
+            opacity: 0.3;
+            cursor: not-allowed;
+        }}
+        
+        .nav-btn:disabled:hover {{
+            background: rgba(0, 0, 0, 0.8);
+            transform: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }}
+        
+        /* Hide nav buttons on mobile (keep swipe/tap zone) */
+        @media (max-width: 768px) {{
+            .nav-buttons {{
+                display: none;
+            }}
+        }}
+        
         /* Page Turn Animation */
         @keyframes slideInLeft {{
             from {{ transform: translateX(-20px); opacity: 0; }}
@@ -353,6 +421,16 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
                     </div>
                 </div>
             </div>
+        </div>
+        
+        <!-- Visible Navigation Buttons (Desktop) -->
+        <div class="nav-buttons" id="navButtons">
+            <button class="nav-btn" id="prevBtn">
+                ← Previous
+            </button>
+            <button class="nav-btn" id="nextBtn">
+                Next →
+            </button>
         </div>
     </div>
     
@@ -488,6 +566,9 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             // Update CSS variables
             document.documentElement.style.setProperty('--font-size', `${{state.fontSize}}px`);
             document.documentElement.style.setProperty('--margin', `${{state.margin}}px`);
+            
+            // Update navigation buttons
+            updateNavButtons();
         }}
         
         // Navigation
@@ -529,10 +610,25 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             paginateContent();
         }}
         
+        // Update button states
+        function updateNavButtons() {{
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            
+            if (prevBtn && nextBtn) {{
+                prevBtn.disabled = state.currentPage === 0;
+                nextBtn.disabled = state.currentPage === state.totalPages - 1;
+            }}
+        }}
+        
         // Event Listeners
         document.getElementById('navLeft').addEventListener('click', prevPage);
         document.getElementById('navRight').addEventListener('click', nextPage);
         document.getElementById('centerZone').addEventListener('click', toggleOverlay);
+        
+        // Navigation buttons
+        document.getElementById('prevBtn').addEventListener('click', prevPage);
+        document.getElementById('nextBtn').addEventListener('click', nextPage);
         
         progressSlider.addEventListener('input', (e) => {{
             goToPage(parseInt(e.target.value));

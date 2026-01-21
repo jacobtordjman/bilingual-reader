@@ -132,7 +132,7 @@ def show_upload_page():
 
 
 def process_and_open_reader(uploaded_file):
-    """Process PDF and transition to reader view."""
+    """Process PDF and transition to reader view with progressive loading."""
     
     progress_bar = st.progress(0)
     status = st.empty()
@@ -167,33 +167,43 @@ def process_and_open_reader(uploaded_file):
         translator = get_translator()
         translator.load_model()
         
-        # Step 4: Translate
-        status.info("🌐 Translating sentences...")
-        translations = []
+        # Step 4: Progressive Translation - translate initial batch first
+        # Estimate ~10-15 sentence pairs per page, so 40-50 sentences ≈ 3-4 pages
+        initial_batch_size = min(50, total)
+        status.info(f"🌐 Translating initial content ({initial_batch_size} sentences)...")
+        
+        # Translate initial batch
+        initial_sentences = all_sentences[:initial_batch_size]
+        initial_translations = []
         batch_size = 8
         
-        for i in range(0, total, batch_size):
-            batch = all_sentences[i:i + batch_size]
+        for i in range(0, len(initial_sentences), batch_size):
+            batch = initial_sentences[i:i + batch_size]
             batch_trans = translator.translate_batch(batch)
-            translations.extend(batch_trans)
+            initial_translations.extend(batch_trans)
             
-            progress = 30 + int(60 * (i + len(batch)) / total)
+            progress = 30 + int(40 * (i + len(batch)) / initial_batch_size)
             progress_bar.progress(progress)
-            status.info(f"🌐 Translating... ({min(i + batch_size, total)}/{total})")
         
-        progress_bar.progress(95)
-        status.info("✨ Preparing reader...")
+        progress_bar.progress(70)
+        status.success(f"✅ Ready to read! Processing remaining {total - initial_batch_size} sentences in background...")
         
-        # Create sentence pairs
-        sentence_pairs = list(zip(all_sentences, translations))
+        # Create initial sentence pairs
+        initial_pairs = list(zip(initial_sentences, initial_translations))
         
-        # Store in session state
-        st.session_state.sentence_pairs = sentence_pairs
+        # Store in session state for immediate display
+        st.session_state.sentence_pairs = initial_pairs
+        st.session_state.all_sentences = all_sentences
+        st.session_state.total_sentences = total
+        st.session_state.processed_count = initial_batch_size
+        st.session_state.translator_ready = True
         st.session_state.reader_mode = True
         st.session_state.document_name = uploaded_file.name
+        st.session_state.processing_complete = (initial_batch_size >= total)
         
-        progress_bar.progress(100)
-        status.success("✅ Ready! Loading reader...")
+        # Clear progress UI
+        progress_bar.empty()
+        status.empty()
         
         # Trigger rerun to show reader
         st.rerun()
@@ -205,7 +215,7 @@ def process_and_open_reader(uploaded_file):
 
 
 def show_reader():
-    """Display the full-screen reader interface."""
+    """Display the full-screen reader interface with background processing."""
     
     sentence_pairs = st.session_state.get('sentence_pairs', [])
     
@@ -213,6 +223,37 @@ def show_reader():
         st.session_state.reader_mode = False
         st.rerun()
         return
+    
+    # Check if we need to continue processing
+    processing_complete = st.session_state.get('processing_complete', True)
+    
+    if not processing_complete:
+        # Continue background translation
+        all_sentences = st.session_state.get('all_sentences', [])
+        total_sentences = st.session_state.get('total_sentences', 0)
+        processed_count = st.session_state.get('processed_count', 0)
+        
+        if processed_count < total_sentences:
+            # Process next batch
+            translator = get_translator()
+            batch_size = 16  # Larger batch for background processing
+            end_idx = min(processed_count + batch_size, total_sentences)
+            
+            batch_to_translate = all_sentences[processed_count:end_idx]
+            batch_translations = translator.translate_batch(batch_to_translate)
+            
+            # Append new pairs to existing ones
+            new_pairs = list(zip(batch_to_translate, batch_translations))
+            st.session_state.sentence_pairs.extend(new_pairs)
+            st.session_state.processed_count = end_idx
+            
+            # Check if complete
+            if end_idx >= total_sentences:
+                st.session_state.processing_complete = True
+            else:
+                # Schedule rerun to continue processing
+                import time
+                time.sleep(0.1)  # Small delay to not overwhelm
     
     # Hide Streamlit UI elements for full-screen reader
     st.markdown("""
@@ -228,18 +269,30 @@ def show_reader():
     </style>
     """, unsafe_allow_html=True)
     
-    # Exit reader button (small, top-left)
+    # Top bar with exit button and processing indicator
     col1, col2, col3 = st.columns([1, 8, 1])
     with col1:
         if st.button("← Exit", key="exit_reader"):
             st.session_state.reader_mode = False
             st.rerun()
     
+    # Show processing status if not complete
+    if not processing_complete:
+        with col2:
+            processed = st.session_state.get('processed_count', 0)
+            total = st.session_state.get('total_sentences', 0)
+            progress_pct = int(100 * processed / total) if total > 0 else 0
+            st.info(f"📥 Loading more content... {processed}/{total} sentences ({progress_pct}%)")
+    
     # Generate and display reader
-    reader_html = generate_reader_html(sentence_pairs)
+    reader_html = generate_reader_html(st.session_state.sentence_pairs)
     
     # Use components.html for the full reader experience
     components.html(reader_html, height=700, scrolling=False)
+    
+    # Auto-refresh if processing not complete
+    if not processing_complete:
+        st.rerun()
 
 
 def main():

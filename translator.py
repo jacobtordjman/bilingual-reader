@@ -85,41 +85,19 @@ class Translator:
         return translations
 
 
-# Global translator instance (singleton pattern for efficiency)
-_translator: Optional[Translator] = None
+import streamlit as st
 
-
-def get_translator() -> Translator:
-    """Get the global translator instance."""
-    global _translator
-    if _translator is None:
-        _translator = Translator()
-    return _translator
-
+@st.cache_resource
+def get_translator() -> 'Translator':
+    """Get the global translator instance (cached)."""
+    return Translator()
 
 def translate_spanish_to_english(text: str) -> str:
-    """
-    Convenience function to translate Spanish to English.
-    
-    Args:
-        text: Spanish text
-        
-    Returns:
-        English translation
-    """
+    """Convenience function to translate Spanish to English."""
     translator = get_translator()
     return translator.translate(text)
 
-
 def translate_sentences(sentences: List[str]) -> List[str]:
-    """
-    Translate a list of Spanish sentences to English.
-    
-    Args:
-        sentences: List of Spanish sentences
-        
-    Returns:
-        List of English translations (same order)
-    """
+    """Translate a list of Spanish sentences to English."""
     translator = get_translator()
     return translator.translate_batch(sentences)

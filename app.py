@@ -168,30 +168,37 @@ def show_upload():
                     translations.extend(batch_trans)
                     progress_bar.progress(min(100, int(100 * (i + len(batch)) / total)))
                 
-                # 4. Prepare Content
+                # 4. Prepare Content & Upload to Cloud
                 sentence_pairs = list(zip(all_sentences, translations))
-                
-                # 5. Upload to Cloud
                 status.write("Syncing to cloud...")
                 storage_path = f"{uploaded_file.name}-{os.urandom(4).hex()}.json"
                 
-                if db.upload_content(storage_path, sentence_pairs):
-                    # 6. Create DB Entry
-                    db.add_book(
-                        title=uploaded_file.name.replace(".pdf", ""),
-                        total_sentences=total,
-                        processed_path=storage_path,
-                        original_filename=uploaded_file.name
-                    )
-                    status.update(label="✅ Complete!", state="complete", expanded=False)
-                    st.success("Book added! Redirecting...")
-                    st.session_state.view_mode = "home"
-                    st.rerun()
-                else:
-                    status.error("Failed to upload to cloud storage.")
+                upload_success = db.upload_content(storage_path, sentence_pairs)
+                if not upload_success:
+                    status.error("❌ Failed to upload to cloud storage. Check Supabase setup.")
+                    st.stop()
+                
+                # 5. Create DB Entry
+                book_entry = db.add_book(
+                    title=uploaded_file.name.replace(".pdf", ""),
+                    total_sentences=total,
+                    processed_path=storage_path,
+                    original_filename=uploaded_file.name
+                )
+                
+                if not book_entry:
+                    status.error("❌ Failed to save book to database. Check Supabase setup.")
+                    st.stop()
+                    
+                status.update(label="✅ Complete!", state="complete", expanded=False)
+                st.success("Book added! Redirecting...")
+                st.session_state.view_mode = "home"
+                st.rerun()
                     
             except Exception as e:
                 status.error(f"Error: {str(e)}")
+                import traceback
+                st.error(f"Details: {traceback.format_exc()}")
 
 def show_reader():
     """Display the reader view."""

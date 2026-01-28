@@ -29,11 +29,14 @@ class SupabaseManager:
         if not self.client: return []
         
         try:
-            # First check if table exists by trying to select
             response = self.client.table("user_books").select("*").execute()
             return response.data
         except Exception as e:
-            st.error(f"Error fetching books: {str(e)}")
+            error_msg = str(e)
+            if "404" in error_msg or "relation" in error_msg.lower():
+                st.error("⚠️ Database table 'user_books' not found! Please run the setup SQL in Supabase Dashboard → SQL Editor.")
+            else:
+                st.error(f"Error fetching books: {error_msg}")
             return []
 
     def add_book(self, title, total_sentences, processed_path, original_filename):
@@ -54,7 +57,11 @@ class SupabaseManager:
             response = self.client.table("user_books").insert(data).execute()
             return response.data[0] if response.data else None
         except Exception as e:
-            st.error(f"Error adding book: {str(e)}")
+            error_msg = str(e)
+            if "404" in error_msg or "relation" in error_msg.lower():
+                st.error("⚠️ Cannot save book - table 'user_books' not found! Please run the setup SQL in Supabase.")
+            else:
+                st.error(f"Error adding book: {error_msg}")
             return None
 
     def update_bookmark(self, book_id, page_number):
@@ -94,11 +101,15 @@ class SupabaseManager:
             self.client.storage.from_(bucket_name).upload(
                 path,
                 content_str.encode('utf-8'),
-                {"content-type": "application/json", "upsert": "true"}
+                file_options={"content-type": "application/json", "upsert": "true"}
             )
             return True
         except Exception as e:
-            st.error(f"Error uploading to storage: {str(e)}")
+            error_msg = str(e)
+            if "404" in error_msg or "not found" in error_msg.lower():
+                st.error(f"Storage bucket '{bucket_name}' not found! Please create it in Supabase Dashboard → Storage.")
+            else:
+                st.error(f"Error uploading to storage: {error_msg}")
             return False
 
     def load_content(self, path):

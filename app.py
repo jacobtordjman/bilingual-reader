@@ -136,23 +136,29 @@ def show_upload():
         with st.status("Processing book...", expanded=True) as status:
             try:
                 # 1. Extract
+                print("DEBUG: Starting extraction...", flush=True)
                 status.write("Extracting text...")
                 text = extract_text_from_pdf(uploaded_file)
+                print(f"DEBUG: Extracted {len(text)} characters.", flush=True)
                 if not text.strip():
+                    print("DEBUG: Empty text extracted.", flush=True)
                     status.error("Empty or image-based PDF text.")
                     return
 
                 # 2. Segment
+                print("DEBUG: Starting segmentation...", flush=True)
                 status.write("Segmenting sentences...")
                 paragraphs = group_sentences_by_paragraph(text)
                 all_sentences = [sent for para in paragraphs for sent in para]
                 total = len(all_sentences)
+                print(f"DEBUG: Found {total} sentences.", flush=True)
                 
                 if total == 0:
                     status.error("No sentences found.")
                     return
 
                 # 3. Translate
+                print("DEBUG: Starting translation...", flush=True)
                 status.write(f"Translating {total} sentences (this may take a minute)...")
                 progress_bar = status.progress(0)
                 
@@ -167,18 +173,25 @@ def show_upload():
                     batch_trans = translator.translate_batch(batch)
                     translations.extend(batch_trans)
                     progress_bar.progress(min(100, int(100 * (i + len(batch)) / total)))
+                    if i % (batch_size * 5) == 0:
+                        print(f"DEBUG: Translated {i}/{total} sentences...", flush=True)
                 
+                print("DEBUG: Translation complete.", flush=True)
+
                 # 4. Prepare Content & Upload to Cloud
+                print("DEBUG: Uploading to cloud...", flush=True)
                 sentence_pairs = list(zip(all_sentences, translations))
                 status.write("Syncing to cloud...")
                 storage_path = f"{uploaded_file.name}-{os.urandom(4).hex()}.json"
                 
                 upload_success = db.upload_content(storage_path, sentence_pairs)
                 if not upload_success:
+                    print("DEBUG: Upload to storage failed.", flush=True)
                     status.error("❌ Failed to upload to cloud storage. Check Supabase setup.")
                     st.stop()
                 
                 # 5. Create DB Entry
+                print("DEBUG: Adding to database...", flush=True)
                 book_entry = db.add_book(
                     title=uploaded_file.name.replace(".pdf", ""),
                     total_sentences=total,
@@ -187,18 +200,23 @@ def show_upload():
                 )
                 
                 if not book_entry:
+                    print("DEBUG: Database insertion failed.", flush=True)
                     status.error("❌ Failed to save book to database. Check Supabase setup.")
                     st.stop()
                     
+                print("DEBUG: Book added successfully!", flush=True)
                 status.update(label="✅ Complete!", state="complete", expanded=False)
                 st.success("Book added! Redirecting...")
                 st.session_state.view_mode = "home"
                 st.rerun()
                     
             except Exception as e:
-                status.error(f"Error: {str(e)}")
                 import traceback
-                st.error(f"Details: {traceback.format_exc()}")
+                error_trace = traceback.format_exc()
+                print(f"ERROR: {str(e)}", flush=True)
+                print(error_trace, flush=True)
+                status.error(f"Error: {str(e)}")
+                st.error(f"Details: {error_trace}")
 
 def show_reader():
     """Display the reader view."""
@@ -230,25 +248,15 @@ def show_reader():
         return
 
     # Reader Component
-    # We pass the book ID so the JS can send bookmark updates (conceptually, 
-    # but for now we'll just handle it by initial page load)
+    # Pass the book ID and current page for bookmark restoration
     
-    # Inject initial page from DB bookmark
-    # The pure HTML/JS component handles pagination logic internally.
-    # To support "Resume", we'd ideally pass the `initialPage` to the component.
-    # Let's quickly patch reader_component.py to accept initial_page if needed, 
-    # but strictly speaking, we can just let it load.
-    # For now, let's just show it.
+    reader_html = generate_reader_html(
+        sentence_pairs, 
+        initial_page=book['current_page'],
+        book_id=book['id']
+    )
     
-    reader_html = generate_reader_html(sentence_pairs)
-    
-    # Update Bookmark Logic (Simple approach: Updates on exit or periodically? 
-    # Real-time sync requires bi-directional comms which is hard with pure Streamlit components.
-    # We will simulate by updating when user clicks "Back" if we could read JS state, 
-    # but we can't easily.
-    # ALTERNATIVE: Use Streamlit URL params or dedicated sync button if needed.
-    # For this iteration, we'll focus on the Library structure first.)
-    
+    # Render the reader
     components.html(reader_html, height=750, scrolling=False)
 
 

@@ -48,3 +48,5 @@ desktop.ini
 # Local data/uploads
 uploads/
 *.pdf
+test_supabase.py
+CLEANUP_INSTRUCTIONS.md

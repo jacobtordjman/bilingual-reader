@@ -9,7 +9,9 @@ from typing import List, Tuple
 
 def generate_reader_html(sentence_pairs: List[Tuple[str, str]], 
                          initial_font_size: int = 18,
-                         initial_margin: int = 24) -> str:
+                         initial_margin: int = 24,
+                         initial_page: int = 0,
+                         book_id: str = None) -> str:
     """
     Generate the complete HTML/CSS/JS for the bilingual reader.
     
@@ -17,6 +19,8 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
         sentence_pairs: List of (spanish, english) sentence tuples
         initial_font_size: Starting font size in pixels
         initial_margin: Starting margin in pixels
+        initial_page: Page number to start on (for bookmarks)
+        book_id: Unique book identifier for localStorage key
         
     Returns:
         Complete HTML string for the reader component
@@ -349,6 +353,123 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             .nav-buttons {{
                 display: none;
             }}
+            
+            /* Optimize for mobile reading */
+            :root {{
+                --font-size: 16px;  /* Slightly smaller base on mobile */
+                --margin: 16px;     /* Reduced margins for more screen space */
+            }}
+            
+            .spanish {{
+                font-size: var(--font-size);
+            }}
+            
+            .english {{
+                font-size: calc(var(--font-size) * 0.88);
+            }}
+            
+            /* Larger touch targets for mobile */
+            .setting-btn {{
+                width: 44px;
+                height: 44px;
+                font-size: 20px;
+            }}
+            
+            .nav-zone {{
+                width: 30%; /* Slightly wider tap zones on mobile */
+            }}
+            
+            .center-zone {{
+                left: 30%;
+                width: 40%;
+            }}
+            
+            /* Bottom bar adjustments */
+            .bottom-bar {{
+                padding: 16px;
+            }}
+            
+            .settings-row {{
+                gap: 20px;
+                flex-wrap: wrap;
+            }}
+            
+            .setting-label {{
+                font-size: 11px;
+            }}
+            
+            .setting-value {{
+                min-width: 50px;
+                font-size: 15px;
+            }}
+            
+            /* Top bar */
+            .top-bar {{
+                padding: 12px 16px;
+            }}
+            
+            .top-bar h1 {{
+                font-size: 14px;
+            }}
+            
+            .page-indicator {{
+                font-size: 12px;
+            }}
+            
+            /* Progress slider - larger touch target */
+            .progress-slider {{
+                height: 6px;
+            }}
+            
+            .progress-slider::-webkit-slider-thumb {{
+                width: 20px;
+                height: 20px;
+            }}
+            
+            .progress-slider::-moz-range-thumb {{
+                width: 20px;
+                height: 20px;
+            }}
+        }}
+        
+        /* Very small screens (phones in portrait) */
+        @media (max-width: 480px) {{
+            :root {{
+                --font-size: 15px;
+                --margin: 12px;
+            }}
+            
+            .sentence-pair {{
+                margin-bottom: 1em;
+            }}
+            
+            .settings-row {{
+                gap: 16px;
+            }}
+        }}
+        
+        /* Landscape mobile optimization */
+        @media (max-width: 896px) and (orientation: landscape) {{
+            :root {{
+                --margin: 12px;
+            }}
+            
+            .top-bar {{
+                padding: 8px 12px;
+            }}
+            
+            .bottom-bar {{
+                padding: 12px;
+            }}
+            
+            .settings-row {{
+                gap: 16px;
+            }}
+            
+            .setting-btn {{
+                width: 32px;
+                height: 32px;
+            }}
         }}
         
         /* Page Turn Animation */
@@ -439,8 +560,22 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
         const sentencePairs = {pairs_json};
         
         // Reader State
+        const bookId = {json.dumps(book_id or 'default')};
+        const localStorageKey = `bilingual_reader_page_${{bookId}}`;
+        
+        // Try to load from localStorage first, then fall back to initial_page
+        let savedPage = 0;
+        try {{
+            const saved = localStorage.getItem(localStorageKey);
+            if (saved !== null) {{
+                savedPage = parseInt(saved, 10);
+            }}
+        }} catch (e) {{
+            console.warn('localStorage not available:', e);
+        }}
+        
         const state = {{
-            currentPage: 0,
+            currentPage: savedPage || {initial_page},
             totalPages: 1,
             pages: [],
             fontSize: {initial_font_size},
@@ -571,10 +706,20 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             updateNavButtons();
         }}
         
+        // Save current page to localStorage
+        function saveBookmark() {{
+            try {{
+                localStorage.setItem(localStorageKey, state.currentPage.toString());
+            }} catch (e) {{
+                console.warn('Failed to save bookmark:', e);
+            }}
+        }}
+        
         // Navigation
         function goToPage(pageNum, direction = null) {{
             if (pageNum >= 0 && pageNum < state.totalPages) {{
                 state.currentPage = pageNum;
+                saveBookmark(); // Save on every page change
                 updateUI();
                 renderCurrentPage(direction);
             }}

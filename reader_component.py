@@ -51,31 +51,53 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             --overlay-bg: rgba(0, 0, 0, 0.85);
             --accent-color: #667eea;
             --transition-speed: 0.3s;
+            --mobile-nav-height: 0px; /* Will be set to 60px on mobile */
+            --vh: 1vh; /* Fallback for dynamic viewport height */
+        }}
+        
+        html, body {{
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+            overscroll-behavior: none;
+            -webkit-overflow-scrolling: touch;
         }}
         
         body {{
             font-family: 'Georgia', 'Times New Roman', serif;
             background: var(--page-bg);
             color: var(--text-color);
-            overflow: hidden;
             user-select: none;
             -webkit-user-select: none;
+            touch-action: pan-x pan-y;
         }}
         
-        /* Reader Viewport */
+        /* Reader Viewport - Fixed to prevent scroll */
         .reader-viewport {{
             width: 100vw;
+            width: 100dvw;
             height: 100vh;
-            position: relative;
+            height: 100dvh;
+            height: calc(var(--vh, 1vh) * 100);
+            position: fixed;
+            top: 0;
+            left: 0;
             overflow: hidden;
+            overscroll-behavior: contain;
         }}
         
         /* Page Container */
         .page-container {{
             width: 100%;
-            height: 100%;
+            height: calc(100% - var(--mobile-nav-height));
             padding: var(--margin);
-            overflow: hidden;
+            padding-bottom: calc(var(--margin) + 10px); /* Extra buffer */
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
             transition: opacity var(--transition-speed) ease;
         }}
         
@@ -109,7 +131,7 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
         .nav-zone {{
             position: absolute;
             top: 0;
-            height: 100%;
+            height: calc(100% - var(--mobile-nav-height));
             width: 25%;
             z-index: 5;
             cursor: pointer;
@@ -131,6 +153,31 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             background: linear-gradient(270deg, rgba(0,0,0,0.02) 0%, transparent 100%);
         }}
         
+        /* Visual Navigation Hints (Mobile) */
+        .nav-hint {{
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 32px;
+            color: rgba(0, 0, 0, 0.12);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 6;
+        }}
+        
+        .nav-hint.left {{
+            left: 12px;
+        }}
+        
+        .nav-hint.right {{
+            right: 12px;
+        }}
+        
+        .nav-hint.show {{
+            opacity: 1;
+        }}
+        
         /* Center Tap Zone - for overlay toggle */
         .center-zone {{
             position: absolute;
@@ -140,6 +187,68 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             height: 60%;
             z-index: 4;
             cursor: pointer;
+        }}
+        
+        /* Mobile Bottom Navigation Bar */
+        .mobile-nav-bar {{
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: none; /* Hidden by default, shown on mobile */
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            z-index: 1000;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+        }}
+        
+        .mobile-nav-bar.hidden {{
+            transform: translateY(100%);
+            opacity: 0;
+        }}
+        
+        .mobile-nav-btn {{
+            min-width: 44px;
+            height: 44px;
+            padding: 0 20px;
+            background: rgba(255, 255, 255, 0.15);
+            border: none;
+            border-radius: 22px;
+            color: white;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            touch-action: manipulation;
+        }}
+        
+        .mobile-nav-btn:active {{
+            background: rgba(102, 126, 234, 0.9);
+            transform: scale(0.95);
+        }}
+        
+        .mobile-nav-btn:disabled {{
+            opacity: 0.3;
+            background: rgba(255, 255, 255, 0.1);
+        }}
+        
+        .mobile-page-indicator {{
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0.9;
+            text-align: center;
+            flex: 1;
         }}
         
         /* Overlay Controls */
@@ -348,16 +457,20 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }}
         
-        /* Hide nav buttons on mobile (keep swipe/tap zone) */
+        /* Mobile Optimizations */
         @media (max-width: 768px) {{
+            :root {{
+                --font-size: 16px;
+                --margin: 12px;
+                --mobile-nav-height: 60px;
+            }}
+            
             .nav-buttons {{
                 display: none;
             }}
             
-            /* Optimize for mobile reading */
-            :root {{
-                --font-size: 16px;  /* Slightly smaller base on mobile */
-                --margin: 16px;     /* Reduced margins for more screen space */
+            .mobile-nav-bar {{
+                display: flex;
             }}
             
             .spanish {{
@@ -376,7 +489,7 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             }}
             
             .nav-zone {{
-                width: 30%; /* Slightly wider tap zones on mobile */
+                width: 30%;
             }}
             
             .center-zone {{
@@ -387,6 +500,7 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             /* Bottom bar adjustments */
             .bottom-bar {{
                 padding: 16px;
+                padding-bottom: calc(16px + env(safe-area-inset-bottom));
             }}
             
             .settings-row {{
@@ -406,6 +520,7 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             /* Top bar */
             .top-bar {{
                 padding: 12px 16px;
+                padding-top: max(12px, env(safe-area-inset-top));
             }}
             
             .top-bar h1 {{
@@ -436,7 +551,7 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
         @media (max-width: 480px) {{
             :root {{
                 --font-size: 15px;
-                --margin: 12px;
+                --margin: 10px;
             }}
             
             .sentence-pair {{
@@ -451,7 +566,19 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
         /* Landscape mobile optimization */
         @media (max-width: 896px) and (orientation: landscape) {{
             :root {{
-                --margin: 12px;
+                --margin: 10px;
+                --mobile-nav-height: 50px;
+            }}
+            
+            .mobile-nav-bar {{
+                height: 50px;
+                padding: 0 12px;
+            }}
+            
+            .mobile-nav-btn {{
+                height: 38px;
+                min-width: 38px;
+                font-size: 14px;
             }}
             
             .top-bar {{
@@ -513,6 +640,10 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
         <div class="nav-zone right" id="navRight" title="Next page"></div>
         <div class="center-zone" id="centerZone"></div>
         
+        <!-- Visual Navigation Hints (appear briefly on page turn) -->
+        <div class="nav-hint left" id="navHintLeft">‹</div>
+        <div class="nav-hint right" id="navHintRight">›</div>
+        
         <!-- Overlay Controls -->
         <div class="overlay" id="overlay">
             <div class="top-bar">
@@ -553,6 +684,13 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
                 Next →
             </button>
         </div>
+        
+        <!-- Mobile Bottom Navigation Bar -->
+        <div class="mobile-nav-bar" id="mobileNavBar">
+            <button class="mobile-nav-btn" id="mobilePrevBtn">‹ Prev</button>
+            <div class="mobile-page-indicator" id="mobilePageIndicator">1 / 1</div>
+            <button class="mobile-nav-btn" id="mobileNextBtn">Next ›</button>
+        </div>
     </div>
     
     <script>
@@ -580,7 +718,10 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             pages: [],
             fontSize: {initial_font_size},
             margin: {initial_margin},
-            overlayVisible: false
+            overlayVisible: false,
+            isMobile: window.innerWidth <= 768,
+            navBarVisible: true,
+            navTimeout: null
         }};
         
         // DOM Elements
@@ -591,10 +732,58 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
         const pageIndicator = document.getElementById('pageIndicator');
         const fontValue = document.getElementById('fontValue');
         const marginValue = document.getElementById('marginValue');
+        const mobileNavBar = document.getElementById('mobileNavBar');
+        const mobilePageIndicator = document.getElementById('mobilePageIndicator');
+        const navHintLeft = document.getElementById('navHintLeft');
+        const navHintRight = document.getElementById('navHintRight');
+        
+        // Set dynamic viewport height (fixes mobile browser chrome issues)
+        function setViewportHeight() {{
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${{vh}}px`);
+        }}
+        
+        // Check if mobile
+        function isMobileDevice() {{
+            return window.innerWidth <= 768;
+        }}
+        
+        // Auto-hide mobile nav bar
+        function showMobileNavBar() {{
+            if (!isMobileDevice()) return;
+            
+            mobileNavBar.classList.remove('hidden');
+            state.navBarVisible = true;
+            
+            // Clear existing timeout
+            if (state.navTimeout) {{
+                clearTimeout(state.navTimeout);
+            }}
+            
+            // Set new timeout to hide after 3 seconds
+            state.navTimeout = setTimeout(() => {{
+                mobileNavBar.classList.add('hidden');
+                state.navBarVisible = false;
+            }}, 3000);
+        }}
+        
+        // Show navigation hint briefly
+        function showNavHint(direction) {{
+            if (!isMobileDevice()) return;
+            
+            const hint = direction === 'left' ? navHintLeft : navHintRight;
+            hint.classList.add('show');
+            setTimeout(() => {{
+                hint.classList.remove('show');
+            }}, 400);
+        }}
         
         // Pagination Engine
         function paginateContent() {{
-            const containerHeight = viewport.clientHeight - (state.margin * 2);
+            // Calculate available height (subtract mobile nav bar if present)
+            const mobileNavHeight = isMobileDevice() ? 60 : 0;
+            const bufferHeight = 10; // Buffer to prevent clipping
+            const containerHeight = window.innerHeight - (state.margin * 2) - mobileNavHeight - bufferHeight;
             const containerWidth = viewport.clientWidth - (state.margin * 2);
             
             // Create measurement element
@@ -692,11 +881,15 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
         
         // Update UI elements
         function updateUI() {{
+            // Desktop indicators
             pageIndicator.textContent = `Page ${{state.currentPage + 1}} of ${{state.totalPages}}`;
             progressSlider.max = state.totalPages - 1;
             progressSlider.value = state.currentPage;
             fontValue.textContent = `${{state.fontSize}}px`;
             marginValue.textContent = `${{state.margin}}px`;
+            
+            // Mobile nav bar indicator
+            mobilePageIndicator.textContent = `${{state.currentPage + 1}} / ${{state.totalPages}}`;
             
             // Update CSS variables
             document.documentElement.style.setProperty('--font-size', `${{state.fontSize}}px`);
@@ -722,17 +915,20 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
                 saveBookmark(); // Save on every page change
                 updateUI();
                 renderCurrentPage(direction);
+                showMobileNavBar(); // Show nav bar on page change
             }}
         }}
         
         function nextPage() {{
             if (state.currentPage < state.totalPages - 1) {{
+                showNavHint('right');
                 goToPage(state.currentPage + 1, 'next');
             }}
         }}
         
         function prevPage() {{
             if (state.currentPage > 0) {{
+                showNavHint('left');
                 goToPage(state.currentPage - 1, 'prev');
             }}
         }}
@@ -759,10 +955,17 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
         function updateNavButtons() {{
             const prevBtn = document.getElementById('prevBtn');
             const nextBtn = document.getElementById('nextBtn');
+            const mobilePrevBtn = document.getElementById('mobilePrevBtn');
+            const mobileNextBtn = document.getElementById('mobileNextBtn');
             
             if (prevBtn && nextBtn) {{
                 prevBtn.disabled = state.currentPage === 0;
                 nextBtn.disabled = state.currentPage === state.totalPages - 1;
+            }}
+            
+            if (mobilePrevBtn && mobileNextBtn) {{
+                mobilePrevBtn.disabled = state.currentPage === 0;
+                mobileNextBtn.disabled = state.currentPage === state.totalPages - 1;
             }}
         }}
         
@@ -771,9 +974,20 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
         document.getElementById('navRight').addEventListener('click', nextPage);
         document.getElementById('centerZone').addEventListener('click', toggleOverlay);
         
-        // Navigation buttons
+        // Desktop navigation buttons
         document.getElementById('prevBtn').addEventListener('click', prevPage);
         document.getElementById('nextBtn').addEventListener('click', nextPage);
+        
+        // Mobile navigation buttons
+        document.getElementById('mobilePrevBtn').addEventListener('click', prevPage);
+        document.getElementById('mobileNextBtn').addEventListener('click', nextPage);
+        
+        // Tap anywhere to show mobile nav bar
+        pageContainer.addEventListener('click', (e) => {{
+            if (isMobileDevice() && !state.navBarVisible) {{
+                showMobileNavBar();
+            }}
+        }});
         
         progressSlider.addEventListener('input', (e) => {{
             goToPage(parseInt(e.target.value));
@@ -793,11 +1007,23 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             }}
         }});
         
-        // Handle resize
+        // Handle resize and orientation change
         let resizeTimeout;
         window.addEventListener('resize', () => {{
             clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(paginateContent, 200);
+            resizeTimeout = setTimeout(() => {{
+                setViewportHeight();
+                state.isMobile = isMobileDevice();
+                paginateContent();
+            }}, 200);
+        }});
+        
+        // Update viewport height on orientation change
+        window.addEventListener('orientationchange', () => {{
+            setTimeout(() => {{
+                setViewportHeight();
+                paginateContent();
+            }}, 100);
         }});
         
         // Touch swipe support
@@ -818,12 +1044,20 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
         
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {{
+            setViewportHeight();
             paginateContent();
+            if (isMobileDevice()) {{
+                showMobileNavBar();
+            }}
         }});
         
         // Also init immediately in case DOM is already ready
         if (document.readyState !== 'loading') {{
+            setViewportHeight();
             paginateContent();
+            if (isMobileDevice()) {{
+                showMobileNavBar();
+            }}
         }}
     </script>
 </body>

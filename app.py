@@ -250,14 +250,48 @@ def show_reader():
     # Reader Component
     # Pass the book ID and current page for bookmark restoration
     
+    # Hide Streamlit UI and prevent parent scrolling in reader mode
+    st.markdown("""
+    <style>
+        /* Hide Streamlit header/footer/menu in reader view */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        
+        /* Prevent parent Streamlit container from scrolling */
+        .main .block-container {
+            padding: 0 !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
+        }
+        
+        /* Make the iframe take full height */
+        iframe {
+            height: 100vh !important;
+            min-height: 100vh !important;
+        }
+        
+        /* Lock the main Streamlit container */
+        section.main {
+            overflow: hidden !important;
+        }
+        
+        .stApp {
+            overflow: hidden !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
     reader_html = generate_reader_html(
         sentence_pairs, 
         initial_page=book['current_page'],
-        book_id=book['id']
+        book_id=book['id'],
+        supabase_url=st.secrets["supabase"]["url"],
+        supabase_key=st.secrets["supabase"]["key"]
     )
     
-    # Render the reader
-    components.html(reader_html, height=750, scrolling=False)
+    # Render the reader - use larger height for mobile
+    components.html(reader_html, height=800, scrolling=False)
 
 
 def main():

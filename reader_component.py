@@ -11,19 +11,11 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
                          initial_font_size: int = 18,
                          initial_margin: int = 24,
                          initial_page: int = 0,
-                         book_id: str = None) -> str:
+                         book_id: str = None,
+                         supabase_url: str = "",
+                         supabase_key: str = "") -> str:
     """
-    Generate the complete HTML/CSS/JS for the bilingual reader.
-    
-    Args:
-        sentence_pairs: List of (spanish, english) sentence tuples
-        initial_font_size: Starting font size in pixels
-        initial_margin: Starting margin in pixels
-        initial_page: Page number to start on (for bookmarks)
-        book_id: Unique book identifier for localStorage key
-        
-    Returns:
-        Complete HTML string for the reader component
+    Generate the complete HTML/CSS/JS for the reader.
     """
     
     # Convert sentence pairs to JSON for JavaScript
@@ -34,7 +26,8 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * {{
             margin: 0;
@@ -72,7 +65,8 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             color: var(--text-color);
             user-select: none;
             -webkit-user-select: none;
-            touch-action: pan-x pan-y;
+            touch-action: none;
+            overflow: hidden !important;
         }}
         
         /* Reader Viewport - Fixed to prevent scroll */
@@ -89,15 +83,15 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             overscroll-behavior: contain;
         }}
         
-        /* Page Container */
+        /* Page Container - NO SCROLLING ALLOWED */
         .page-container {{
             width: 100%;
             height: calc(100% - var(--mobile-nav-height));
             padding: var(--margin);
-            padding-bottom: calc(var(--margin) + 10px); /* Extra buffer */
-            overflow-y: auto;
-            overflow-x: hidden;
-            -webkit-overflow-scrolling: touch;
+            overflow: hidden !important;
+            touch-action: none;
+            -webkit-overflow-scrolling: none;
+            overscroll-behavior: none;
             transition: opacity var(--transition-speed) ease;
         }}
         
@@ -701,6 +695,20 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
         const bookId = {json.dumps(book_id or 'default')};
         const localStorageKey = `bilingual_reader_page_${{bookId}}`;
         
+        // Initialize Supabase Client
+        const supabaseUrl = "{supabase_url}";
+        const supabaseKey = "{supabase_key}";
+        let supabase = null;
+        
+        if (supabaseUrl && supabaseKey) {{
+            try {{
+                supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+                console.log("Supabase client initialized via CDN");
+            }} catch (e) {{
+                console.error("Failed to init Supabase:", e);
+            }}
+        }}
+
         // Try to load from localStorage first, then fall back to initial_page
         let savedPage = 0;
         try {{
@@ -723,6 +731,31 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             navBarVisible: true,
             navTimeout: null
         }};
+        
+        // ... (DOM Elements and Setup ...)
+
+        // Save current page to localStorage AND Supabase
+        function saveBookmark() {{
+            // 1. Local Storage (Instant)
+            try {{
+                localStorage.setItem(localStorageKey, state.currentPage.toString());
+            }} catch (e) {{
+                console.warn('Failed to save bookmark locally:', e);
+            }}
+            
+            // 2. Supabase (Debounced/Async)
+            if (supabase && bookId && bookId !== 'default') {{
+                // Simple debounce/throttle could be added here, but for page turns it's likely fine
+                // to just fire and forget.
+                supabase
+                    .from('user_books')
+                    .update({{ current_page: state.currentPage }})
+                    .eq('id', bookId)
+                    .then(data => {{
+                        if (data.error) console.warn("Bookmark sync error:", data.error);
+                    }});
+            }}
+        }}
         
         // DOM Elements
         const viewport = document.getElementById('viewport');
@@ -899,14 +932,7 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             updateNavButtons();
         }}
         
-        // Save current page to localStorage
-        function saveBookmark() {{
-            try {{
-                localStorage.setItem(localStorageKey, state.currentPage.toString());
-            }} catch (e) {{
-                console.warn('Failed to save bookmark:', e);
-            }}
-        }}
+
         
         // Navigation
         function goToPage(pageNum, direction = null) {{

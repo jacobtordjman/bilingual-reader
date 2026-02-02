@@ -19,6 +19,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual environments
 venv/
@@ -26,6 +27,7 @@ venv2/
 env/
 ENV/
 .venv/
+.env
 
 # IDE
 .idea/
@@ -45,8 +47,17 @@ desktop.ini
 # Logs
 *.log
 
+# Testing & Cache
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
 # Local data/uploads
 uploads/
 *.pdf
+
+# Temporary scripts & docs
 test_supabase.py
 CLEANUP_INSTRUCTIONS.md
+BOOKMARK_FIX_README.md

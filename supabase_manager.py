@@ -17,6 +17,10 @@ class SupabaseManager:
         """Initialize Supabase client from Streamlit secrets."""
         try:
             url = st.secrets["supabase"]["url"]
+            # Ensure URL has trailing slash to satisfy storage3 requirement
+            if not url.endswith("/"):
+                url += "/"
+            
             key = st.secrets["supabase"]["key"]
             self.client: Client = create_client(url, key)
             self.user_id = "user_123"  # Simplified for this specific user request

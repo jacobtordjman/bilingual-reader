@@ -61,5 +61,3 @@ uploads/
 test_supabase.py
 CLEANUP_INSTRUCTIONS.md
 BOOKMARK_FIX_README.md
-assets/library_view.png
-assets/reader_view.png

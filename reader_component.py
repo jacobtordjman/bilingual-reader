@@ -688,6 +688,22 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
     </div>
     
     <script>
+        // Global Error Handler to show errors on screen
+        window.onerror = function(msg, url, line, col, error) {{
+            const pageContainer = document.getElementById('pageContainer');
+            if (pageContainer) {{
+                pageContainer.innerHTML = `
+                    <div style="padding: 20px; color: red; background: #fff0f0; border: 1px solid red; margin: 20px;">
+                        <h3>JavaScript Error</h3>
+                        <p><strong>Message:</strong> ${{msg}}</p>
+                        <p><strong>Line:</strong> ${{line}}:${{col}}</p>
+                        <pre style="white-space: pre-wrap;">${{error ? error.stack : ''}}</pre>
+                    </div>
+                `;
+            }}
+            return false;
+        }};
+
         // Sentence pairs data
         const sentencePairs = {pairs_json};
         
@@ -696,18 +712,22 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
         const localStorageKey = `bilingual_reader_page_${{bookId}}`;
         
         // Initialize Supabase Client
-        const supabaseUrl = "{supabase_url}";
-        const supabaseKey = "{supabase_key}";
-        let supabase = null;
+        const supabaseUrl = {json.dumps(supabase_url)};
+        const supabaseKey = {json.dumps(supabase_key)};
+        let dbClient = null;
         
-        if (supabaseUrl && supabaseKey) {{
+        if (supabaseUrl && supabaseKey && window.supabase) {{
             try {{
-                supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
-                console.log("Supabase client initialized via CDN");
+                dbClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+                console.log("Supabase client initialized");
             }} catch (e) {{
                 console.error("Failed to init Supabase:", e);
             }}
+        }} else if (supabaseUrl && supabaseKey && !window.supabase) {{
+            console.warn("Supabase script not loaded, bookmark syncing disabled");
         }}
+
+
 
         // Try to load from localStorage first, then fall back to initial_page
         let savedPage = 0;
@@ -744,10 +764,9 @@ def generate_reader_html(sentence_pairs: List[Tuple[str, str]],
             }}
             
             // 2. Supabase (Debounced/Async)
-            if (supabase && bookId && bookId !== 'default') {{
-                // Simple debounce/throttle could be added here, but for page turns it's likely fine
-                // to just fire and forget.
-                supabase
+            if (dbClient && bookId && bookId !== 'default') {{
+                // Simple debounce/throttle could be added here
+                dbClient
                     .from('user_books')
                     .update({{ current_page: state.currentPage }})
                     .eq('id', bookId)
